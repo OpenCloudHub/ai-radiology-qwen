@@ -1,8 +1,24 @@
 """
 Training Callbacks
+==================
 
-Ray Train callback for checkpoint and metrics reporting.
-Saves model + processor + prompt info to Ray checkpoints for MLflow logging.
+Ray Train callback for checkpoint management and metrics reporting.
+
+Augments HuggingFace checkpoints with serving artifacts (processor, prompt_info)
+and reports metrics/checkpoints to Ray Train.
+
+Classes
+-------
+RayTrainReportCallback : Saves processor + prompt_info, reports to Ray Train
+
+Functions
+---------
+load_metadata_from_dvc : Fetches metadata.json without downloading full dataset
+
+Notes
+-----
+The callback adds prompt_info.json to checkpoints, ensuring the serving
+wrapper uses the exact prompt the model was trained with.
 """
 
 import json
@@ -131,7 +147,7 @@ class RayTrainReportCallback(TrainerCallback):
 def load_metadata_from_dvc(
     repo: str,
     version: str,
-    metadata_path: str = "data/radiology-mini/metadata.json",
+    metadata_path: str = "data/roco-radiology/metadata.json",
 ) -> dict:
     """Load only metadata from DVC (no data download)."""
     import os

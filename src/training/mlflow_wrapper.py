@@ -1,8 +1,30 @@
 """
-MLflow PyFunc Wrapper for Qwen2.5-VL
+MLflow PyFunc Model Wrapper
+===========================
 
-Wraps trained Qwen model for serving via MLflow.
-Supports both full models and LoRA adapters.
+Custom wrapper enabling MLflow to serve Qwen2.5-VL vision-language models.
+
+MLflow doesn't natively support VLMs, so this wrapper handles model loading,
+LoRA adapter detection, and base64 image → text inference.
+
+Classes
+-------
+QwenVLPyFuncModel : MLflow PyFunc wrapper with load_context() and predict()
+InferenceParams : Pydantic model for generation parameters
+
+Environment Variables
+---------------------
+SERVE_QUANTIZED : Set to 'true' for 4-bit inference (~50% VRAM reduction)
+MLFLOW_MODEL_DEVICE : Force 'cpu' loading (used during MLflow validation)
+
+Notes
+-----
+This wrapper gets serialized into the MLflow model artifact during training.
+The prompt_info.json in the checkpoint ensures inference uses the training prompt.
+
+See Also
+--------
+README.md : Architecture diagrams and serving documentation
 """
 
 import base64
@@ -18,7 +40,11 @@ from mlflow.pyfunc import PythonModelContext
 from peft import PeftModel
 from PIL import Image
 from pydantic import BaseModel, Field
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from transformers import (
+    AutoProcessor,
+    BitsAndBytesConfig,
+    Qwen2_5_VLForConditionalGeneration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +146,18 @@ class QwenVLPyFuncModel(mlflow.pyfunc.PythonModel):
             self.device = torch.device("cpu")
             logger.info("Using CPU")
 
+        # Check if quantized inference is requested (saves ~50% VRAM)
+        use_quantized = os.getenv("SERVE_QUANTIZED", "false").lower() == "true"
+        quantization_config = None
+        if use_quantized and torch.cuda.is_available():
+            logger.info("Using 4-bit quantization for serving (reduced VRAM)")
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=torch.bfloat16,
+            )
+
         # Load model
         if has_lora:
             logger.info("Loading LoRA model")
@@ -131,8 +169,9 @@ class QwenVLPyFuncModel(mlflow.pyfunc.PythonModel):
 
             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 base_model_name,
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device_map=self.device,
+                quantization_config=quantization_config,
                 trust_remote_code=True,
             )
 
@@ -140,15 +179,16 @@ class QwenVLPyFuncModel(mlflow.pyfunc.PythonModel):
             self.model = PeftModel.from_pretrained(
                 self.model,
                 str(model_path),
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
             )
             logger.info(f"Loaded LoRA adapter from {model_path}")
         else:
             logger.info("Loading full model")
             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 str(model_path),
-                torch_dtype=torch.bfloat16,
+                dtype=torch.bfloat16,
                 device_map=self.device,
+                quantization_config=quantization_config,
                 trust_remote_code=True,
             )
 
@@ -215,8 +255,11 @@ class QwenVLPyFuncModel(mlflow.pyfunc.PythonModel):
         if params is None:
             params = InferenceParams().model_dump()
 
-        # Default prompt for radiology (TODO: make configurable)
-        prompt = "You are an expert radiographer. Describe accurately what you see in this image."
+        # Use the prompt loaded from checkpoint (ensures train-serve consistency)
+        prompt = self.prompt
+        logger.info(
+            f"Using prompt: {self.prompt_info['prompt_name']} v{self.prompt_info['prompt_version']}"
+        )
 
         results = []
         for image in images:

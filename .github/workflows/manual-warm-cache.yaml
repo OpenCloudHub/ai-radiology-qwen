@@ -1,0 +1,44 @@
+name: Manual Warm Docker Cache
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Build target to warm"
+        required: true
+        default: "training_deps"
+        type: choice
+        options:
+          - training_deps
+          - training
+          - serving
+          - dev
+
+jobs:
+  warm-cache:
+    name: 🔥 Warm Docker Cache
+    runs-on: self-hosted
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: 🛠️ Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔥 Build and push cache
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          target: ${{ inputs.target }}
+          push: false
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/roco-radiology-vqa-training:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/roco-radiology-vqa-training:buildcache,mode=max
+          provenance: false
+          sbom: false

@@ -1,14 +1,27 @@
 """
-Qwen VL Dataset and Data Collation
+Dataset and Data Collation
+==========================
 
-Image-only dataset for Qwen2.5-VL fine-tuning.
-Handles:
-- Loading annotations in Qwen conversation format
-- Image preprocessing with AutoProcessor
-- Tokenization and label masking
-- Batch collation with padding
+PyTorch Dataset and DataCollator for Qwen2.5-VL multimodal fine-tuning.
 
-Based on official Qwen2.5-VL training code, simplified for image-only use.
+Handles image loading, Qwen conversation tokenization, label masking,
+and 3D RoPE position encoding for vision-language training.
+
+Classes
+-------
+QwenVLDataset : PyTorch Dataset loading images + conversations from DVC data
+QwenVLDataCollator : Pads sequences and stacks images for batching
+
+Functions
+---------
+preprocess_conversations : Tokenizes Qwen chat format with assistant-only labels
+create_dataset_and_collator : Factory function for train/eval datasets
+
+Notes
+-----
+Expects DVC data structure: {split}/annotations.json + {split}/images/
+Annotations use Qwen conversation format with <image> placeholder tokens.
+Based on official Qwen2.5-VL training code.
 """
 
 import copy

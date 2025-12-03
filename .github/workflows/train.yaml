@@ -40,7 +40,7 @@ on:
           - 'gpu-small'
           - 'gpu-medium'
           - 'gpu-large'
-        default: 'cpu-small'
+        default: 'gpu-small'
       approval_mode:
         description: 'Approval mode'
         required: true

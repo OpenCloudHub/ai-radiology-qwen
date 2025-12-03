@@ -2,9 +2,9 @@
 Training Entry Point
 ====================
 
-Main entry point for Qwen2.5-VL fine-tuning using Ray Train.
+Main entry point for (distributed) Qwen2.5-VL fine-tuning using Ray Train.
 
-Orchestrates: config loading → DVC data fetch → model setup →
+Orchestrates: config loading → DVC data fetch → model setup → (distributed)
 training → MLflow model registration.
 
 Functions
@@ -51,7 +51,7 @@ from transformers import (
     Qwen2_5_VLForConditionalGeneration,
 )
 
-from src.training.callbacks import RayTrainReportCallback, load_metadata_from_dvc
+from src.training.callbacks import RayTrainReportCallback
 from src.training.config import InfraConfig, TrainConfig
 from src.training.data import create_dataset_and_collator
 from src.training.dvc_loader import load_data_from_dvc
@@ -194,17 +194,26 @@ def apply_lora(model, config: TrainConfig):
 # Training Functions
 # =============================================================================
 def train_worker(train_loop_config: dict):
-    """Training function that runs on each Ray worker."""
-    # Unpack configs
+    """Training function that runs on each Ray worker.
+
+    Data is pre-downloaded by the driver and passed via train_loop_config
+    to avoid redundant DVC downloads on each worker.
+    """
+    # Unpack configs (data_path and prompt_info come from driver)
     config = TrainConfig.model_validate(train_loop_config["config_dict"])
-    infra = InfraConfig()  # Always from env vars
     mlflow_run_id = train_loop_config["mlflow_run_id"]
+    data_path = train_loop_config["data_path"]
+    prompt_info = train_loop_config["prompt_info"]
+
+    # Update config with path from driver
+    config.data.dataset_path = data_path
 
     rank = get_context().get_world_rank()
     is_rank0 = rank == 0
 
     if is_rank0:
         log_section("Worker Initialized", "🔧")
+        infra = InfraConfig()  # Only needed on rank 0 for MLflow
         check_mlflow_env()
         mlflow.set_tracking_uri(infra.mlflow_tracking_uri)
         mlflow.set_experiment(infra.mlflow_experiment_name)
@@ -218,29 +227,8 @@ def train_worker(train_loop_config: dict):
     else:
         raise RuntimeError("CUDA not available")
 
-    # Download data from DVC
     if is_rank0:
-        log_section("Loading Data from DVC", "📦")
-
-    local_path, metadata = load_data_from_dvc(
-        repo=infra.dvc_repo,
-        version=infra.dvc_data_version,
-        processed_path=infra.dvc_processed_path,
-        metadata_path=infra.dvc_metadata_path,
-    )
-
-    # Update config with downloaded path
-    config.data.dataset_path = str(local_path)
-
-    # Prompt info is required
-    prompt_info = metadata.get("prompt")
-    if prompt_info is None:
-        raise RuntimeError(
-            f"No prompt info in metadata for DVC version {infra.dvc_data_version}"
-        )
-
-    if is_rank0:
-        log_key_value("DVC Version", infra.dvc_data_version)
+        log_key_value("Data Path", data_path)
         log_key_value(
             "Prompt", f"{prompt_info['prompt_name']} v{prompt_info['prompt_version']}"
         )
@@ -283,7 +271,7 @@ def train_worker(train_loop_config: dict):
     callback = RayTrainReportCallback(processor=processor, prompt_info=prompt_info)
     trainer.add_callback(callback)
 
-    # Prepare for training
+    # Prepare for distributed training
     trainer = ray.train.huggingface.transformers.prepare_trainer(trainer)
 
     # Check for existing checkpoint
@@ -314,19 +302,32 @@ def train_worker(train_loop_config: dict):
 
 
 def train_driver(config: TrainConfig, infra: InfraConfig) -> ray.train.Result:
-    """Driver function that orchestrates training."""
+    """Driver function that orchestrates distributed training.
+
+    Downloads data from DVC once, then passes the local path to workers
+    to avoid redundant downloads.
+    """
     log_section("Qwen2.5-VL Training Pipeline", "🚀")
 
-    # Load metadata to get prompt info for tagging
-    log_info("Loading metadata from DVC...")
-    metadata = load_metadata_from_dvc(
+    # Download data from DVC once in driver
+    log_section("Loading Data from DVC", "📦")
+    log_key_value("DVC Repo", infra.dvc_repo)
+    log_key_value("DVC Version", infra.dvc_data_version)
+
+    local_path, metadata = load_data_from_dvc(
         repo=infra.dvc_repo,
         version=infra.dvc_data_version,
+        processed_path=infra.dvc_processed_path,
         metadata_path=infra.dvc_metadata_path,
     )
+
+    # Prompt info is required
     prompt_info = metadata.get("prompt")
     if prompt_info is None:
         raise RuntimeError(f"No prompt info in metadata for {infra.dvc_data_version}")
+
+    log_success(f"Data downloaded to: {local_path}")
+    log_key_value("Prompt", f"{prompt_info['prompt_name']} v{prompt_info['prompt_version']}")
 
     # Show training configuration
     log_training_summary(
@@ -378,10 +379,12 @@ def train_driver(config: TrainConfig, infra: InfraConfig) -> ray.train.Result:
             }
         )
 
-        # Prepare train loop config
+        # Prepare train loop config (pass data path to avoid re-download in workers)
         train_loop_config = {
             "config_dict": config.model_dump(),
             "mlflow_run_id": mlflow_run_id,
+            "data_path": str(local_path),
+            "prompt_info": prompt_info,
         }
 
         # Create Ray TorchTrainer

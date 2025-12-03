@@ -1,4 +1,20 @@
-"""Pydantic schemas for Qwen2.5-VL serving API."""
+"""
+API Schema Definitions
+======================
+
+Pydantic models for REST API validation and OpenAPI documentation.
+
+Classes
+-------
+InferenceParams : Generation settings (temperature, top_p, max_tokens)
+APIStatus : Service health states enum
+RootResponse : GET / response
+HealthResponse : GET /health response
+ModelInfo : GET /info response with MLflow metadata
+ImagePrediction : Single image result in batch
+PredictionResponse : POST /predict response
+ErrorResponse : Error detail schema
+"""
 
 from datetime import datetime
 from enum import Enum

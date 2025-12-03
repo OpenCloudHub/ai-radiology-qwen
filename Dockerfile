@@ -40,7 +40,8 @@ WORKDIR /workspace/project
 
 # Environment configuration
 # Venv at /opt/venv to avoid bind mount conflicts in devcontainer
-ENV PYTHONUNBUFFERED=1 \
+ENV VIRTUAL_ENV="/opt/venv" \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \

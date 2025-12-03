@@ -1,6 +1,5 @@
 # QLoRA + Flash Attention (10 steps)
 # VRAM: ~6-8 GB
-# TODO: validate
 data:
   dataset_path: "/workspace/project/data/radiology_mini"
   do_train: true

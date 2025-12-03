@@ -1,11 +1,31 @@
 """
-Qwen VL Training Configuration
+Training Configuration
+======================
 
-Two config types:
-- Infrastructure: From environment variables only (MLflow, DVC, Ray)
-- Training: From YAML only (model, lora, hyperparameters)
+Pydantic-based configuration with clean separation of concerns:
+
+- **InfraConfig**: Infrastructure settings from environment variables (CI/CD controlled)
+- **TrainConfig**: Training hyperparameters from YAML files (developer controlled)
+
+This separation allows the same code to run locally and on Kubernetes
+without modifying configuration files.
+
+Classes
+-------
+InfraConfig : DVC, MLflow, Ray settings (reads from os.environ)
+TrainConfig : Model, LoRA, quantization, hyperparameters (loads from YAML)
+DataConfig : Dataset paths and image processing settings
+ModelConfig : Base model and component training flags
+LoRAConfig : LoRA/QLoRA adapter settings
+QuantizationConfig : 4-bit/8-bit quantization settings
+OptimizationConfig : Flash attention, gradient checkpointing, precision
+TrainingConfig : Hyperparameters and nested configs
+
+See Also
+--------
+configs/ : Example YAML configurations
+README.md : Environment variable reference
 """
-# TODO: Integrate Hydra for dynamic config overrides?
 
 import os
 from datetime import datetime
@@ -50,6 +70,9 @@ class InfraConfig:
     # Ray
     ray_storage_path: str = os.environ.get("RAY_STORAGE_PATH", "/tmp/ray_results")
     ray_num_workers: int = int(os.environ.get("RAY_NUM_WORKERS", "1"))
+    ray_gpu_fraction: float = float(
+        os.environ.get("RAY_GPU_FRACTION", "1.0")
+    )  # 0.0-1.0
 
     # Tracking metadata
     argo_workflow_uid: str = os.environ.get("ARGO_WORKFLOW_UID", "local")
@@ -77,7 +100,7 @@ class LoRATargetModules(str, Enum):
 
 
 # =============================================================================
-# Training Configs (YAML only - devs control this)
+# Training Configs (with YAML overrides - devs control this)
 # =============================================================================
 class DataConfig(BaseModel):
     """Data processing settings."""

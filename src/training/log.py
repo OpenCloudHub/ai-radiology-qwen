@@ -1,20 +1,22 @@
 """
-Logging for Ray Training
+Logging Utilities
+=================
 
-Setup:
-- Ray's native JSON logging
-- Rich console for visual separators
+Dual-output logging: structured JSON (for Ray/Loki) + Rich console (for humans).
 
-Usage:
-    from log import get_logger, log_section, log_success, get_ray_logging_config
+Functions
+---------
+get_logger : Returns a Python logger configured for Ray's JSON format
+get_ray_logging_config : Returns Ray LoggingConfig for ray.init()
+log_section, log_success, log_error, log_info : Rich console helpers
+log_training_summary, log_results_summary : Formatted training output
 
-    # In driver, before ray.init()
+Usage
+-----
     ray.init(logging_config=get_ray_logging_config())
-
     logger = get_logger(__name__)
-    log_section("Training Started")
     logger.info("Loading model", extra={"model": "qwen-3b"})
-    log_success("Model loaded!")
+    log_section("Training", "🚀")
 """
 
 import logging

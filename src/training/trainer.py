@@ -1,10 +1,19 @@
 """
-Qwen VL Trainer
+Custom Trainer for Qwen2.5-VL
+=============================
 
-Custom HuggingFace Trainer with:
-- Multi-component learning rates (vision, projector, LLM)
-- Flash attention patches for data flattening
-- Model component training configuration
+Extended HuggingFace Trainer with vision-language specific features:
+multi-component learning rates, component freezing, and flash attention patches.
+
+Classes
+-------
+QwenTrainer : Custom Trainer with create_optimizer() for differential LRs
+
+Features
+--------
+- Separate learning rates for vision encoder, projector, and LLM
+- Component-level freezing via ModelConfig (tune_vision, tune_mlp, tune_llm)
+- Flash attention patches for packed sequence training (data_flatten=True)
 
 Based on official Qwen2.5-VL training code.
 """

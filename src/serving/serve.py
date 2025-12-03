@@ -1,6 +1,41 @@
-"""Qwen2.5-VL serving application using Ray Serve + MLflow."""
+"""
+Model Serving Application
+=========================
+
+Ray Serve + FastAPI application for Qwen2.5-VL inference.
+
+Loads models from MLflow, supports hot reloading, fractional GPU sharing,
+and Kubernetes-compatible health checks.
+
+Classes
+-------
+QwenVLClassifier : Ray Serve deployment with FastAPI endpoints
+AppBuilderArgs : Pydantic model for serve CLI arguments
+
+Endpoints
+---------
+GET /        : Service info
+GET /health  : Health check (Kubernetes readiness probe)
+GET /info    : Model metadata from MLflow
+POST /predict: Image analysis (file upload)
+
+Usage
+-----
+    $ serve run src.serving.serve:app_builder model_uri="models:/qwen-vl/1"
+
+Environment Variables
+---------------------
+SERVE_QUANTIZED=true : Enable 4-bit quantization (~50% VRAM reduction)
+
+See Also
+--------
+README.md : Full API documentation and deployment guide
+"""
 
 import base64
+
+# Use standard logging for Ray Serve compatibility (not Ray Train's JSON logger)
+import logging
 from datetime import datetime, timezone
 from typing import List
 
@@ -20,9 +55,15 @@ from src.serving.schemas import (
     PredictionResponse,
     RootResponse,
 )
-from src.training.log import get_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    )
+    logger.addHandler(handler)
 
 app = FastAPI(
     title="🤖 Qwen2.5-VL Vision-Language API",
@@ -32,12 +73,9 @@ app = FastAPI(
 
 
 @serve.deployment(
-    # ray_actor_options={"num_gpus": 1},
-    # autoscaling_config={
-    #     "min_replicas": 1,
-    #     "max_replicas": 2,
-    #     "target_ongoing_requests": 1,
-    # },
+    ray_actor_options={
+        "num_gpus": 0.25
+    },  # FIXME: This is usually enabled by the serving cluster config, you can uncomment if needed for local testing
 )
 @serve.ingress(app)
 class QwenVLClassifier:

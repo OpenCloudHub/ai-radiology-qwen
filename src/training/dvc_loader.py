@@ -1,7 +1,20 @@
 """
-DVC Data Loader for Qwen Training
+DVC Data Loader
+===============
 
-Downloads data from DVC remote by version tag.
+Downloads versioned training data from DVC remote storage.
+
+Fetches exact data versions by Git tag, enabling reproducible training.
+Data is stored on S3-compatible storage (MinIO) and versioned in data-registry.
+
+Functions
+---------
+load_data_from_dvc : Downloads train/test data and returns local path + metadata
+
+Notes
+-----
+The DVC_DATA_VERSION environment variable specifies which version to fetch.
+metadata.json in the downloaded data contains prompt information for training.
 """
 
 import json
@@ -18,8 +31,8 @@ logger = logging.getLogger(__name__)
 def load_data_from_dvc(
     repo: str,
     version: str,
-    processed_path: str = "data/radiology-mini/processed",
-    metadata_path: str = "data/radiology-mini/metadata.json",
+    processed_path: str = "data/roco-radiology/processed",
+    metadata_path: str = "data/roco-radiology/metadata.json",
     download_dir: str = "/tmp/dvc_data",
 ) -> tuple[Path, dict]:
     """Download data from DVC and return local path + metadata.
