@@ -1,0 +1,45 @@
+# Thesis demo: QLoRA full run
+# VRAM: ~10-12 GB with flash attention
+# Time: ~15-20 min for 200 steps on 400 samples
+data:
+  max_pixels: 602112
+  min_pixels: 3136
+  do_train: true
+  do_eval: false
+
+model:
+  name: "Qwen/Qwen2.5-VL-3B-Instruct"
+  tune_vision: false   # Keep frozen - saves VRAM, vision already good
+  tune_mlp: true       # Train vision-language connector
+  tune_llm: true       # Train LLM with LoRA - key for learning new responses
+
+training:
+  output_dir: "./outputs/demo_qlora"
+  max_steps: 200       # ~2 epochs on 400 samples, enough to see loss drop
+  batch_size: 1
+  gradient_accumulation_steps: 4  # Effective batch size = 4
+  learning_rate: 2.0e-4
+  warmup_steps: 20
+  logging_steps: 10    # Log frequently to see progress
+  save_steps: 100
+  max_length: 2048
+  
+  lora:
+    enabled: true
+    r: 64              # Higher rank = more capacity
+    alpha: 128         # alpha/r = 2 is good
+    dropout: 0.05      # Lower dropout for small dataset
+    target_modules: "all-linear"
+  
+  quantization:
+    enabled: true
+    type: "nf4"
+    load_in_4bit: true
+    load_in_8bit: false
+    double_quant: true
+    compute_dtype: "bfloat16"
+  
+  optimization:
+    flash_attention: true   # Faster + less VRAM
+    gradient_checkpointing: true
+    bf16: true
