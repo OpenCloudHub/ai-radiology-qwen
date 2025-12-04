@@ -566,6 +566,7 @@ ______________________________________________________________________
 
 <h2 id="acknowledgements">🙏 Acknowledgements</h2>
 
+- [Official QwenVL Repo](https://github.com/QwenLM/Qwen3-VL/tree/main/qwen-vl-finetune)
 - [Qwen2.5-VL](https://huggingface.co/Qwen/Qwen2.5-VL-3B-Instruct) - Vision-Language Model
 - [MLflow](https://mlflow.org/) - ML lifecycle management
 - [Ray](https://ray.io/) - Distributed training and serving
