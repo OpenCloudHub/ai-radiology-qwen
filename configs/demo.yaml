@@ -23,14 +23,14 @@ training:
   logging_steps: 10    # Log frequently to see progress
   save_steps: 100
   max_length: 2048
-  
+
   lora:
     enabled: true
     r: 64              # Higher rank = more capacity
     alpha: 128         # alpha/r = 2 is good
     dropout: 0.05      # Lower dropout for small dataset
     target_modules: "all-linear"
-  
+
   quantization:
     enabled: true
     type: "nf4"
@@ -38,7 +38,7 @@ training:
     load_in_8bit: false
     double_quant: true
     compute_dtype: "bfloat16"
-  
+
   optimization:
     flash_attention: true   # Faster + less VRAM
     gradient_checkpointing: true

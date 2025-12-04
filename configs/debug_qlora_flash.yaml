@@ -20,14 +20,14 @@ training:
   warmup_steps: 2
   logging_steps: 2
   save_steps: 10
-  
+
   lora:
     enabled: true
     r: 16
     alpha: 32
     dropout: 0.1
     target_modules: "all-linear"
-  
+
   quantization:
     enabled: true
     type: "nf4"
@@ -35,7 +35,7 @@ training:
     load_in_8bit: false
     double_quant: true
     compute_dtype: "bfloat16"
-  
+
   optimization:
     flash_attention: true
     gradient_checkpointing: true

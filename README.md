@@ -65,24 +65,24 @@ ______________________________________________________________________
 
 ### Key Technical Contributions
 
-| Challenge | Solution | Location |
-|-----------|----------|----------|
-| VLM experiment tracking | Custom MLflow PyFunc wrapper | `src/training/mlflow_wrapper.py` |
-| Prompt-model consistency | Prompt baked into checkpoint | `src/training/callbacks.py` |
-| Memory-efficient training | QLoRA with gradient checkpointing | `src/training/trainer.py` |
-| Memory-efficient serving | 4-bit quantized inference | `SERVE_QUANTIZED=true` env var |
-| Reproducible data | DVC versioning with metadata | `src/training/dvc_loader.py` |
-| Config separation | Env vars (infra) vs YAML (training) | `src/training/config.py` |
+| Challenge                 | Solution                            | Location                         |
+| ------------------------- | ----------------------------------- | -------------------------------- |
+| VLM experiment tracking   | Custom MLflow PyFunc wrapper        | `src/training/mlflow_wrapper.py` |
+| Prompt-model consistency  | Prompt baked into checkpoint        | `src/training/callbacks.py`      |
+| Memory-efficient training | QLoRA with gradient checkpointing   | `src/training/trainer.py`        |
+| Memory-efficient serving  | 4-bit quantized inference           | `SERVE_QUANTIZED=true` env var   |
+| Reproducible data         | DVC versioning with metadata        | `src/training/dvc_loader.py`     |
+| Config separation         | Env vars (infra) vs YAML (training) | `src/training/config.py`         |
 
 ### Reading the Code
 
 For thesis reviewers, the recommended reading order is:
 
 1. **[config.py](src/training/config.py)** - Understand the configuration philosophy (infra vs training separation)
-2. **[train.py](src/training/train.py)** - Entry point showing the driver-worker pattern
-3. **[mlflow_wrapper.py](src/training/mlflow_wrapper.py)** - The key innovation: PyFunc wrapper for VLMs
-4. **[callbacks.py](src/training/callbacks.py)** - How prompts and processors are bundled with checkpoints
-5. **[serve.py](src/serving/serve.py)** - How models are loaded and served via Ray Serve
+1. **[train.py](src/training/train.py)** - Entry point showing the driver-worker pattern
+1. **[mlflow_wrapper.py](src/training/mlflow_wrapper.py)** - The key innovation: PyFunc wrapper for VLMs
+1. **[callbacks.py](src/training/callbacks.py)** - How prompts and processors are bundled with checkpoints
+1. **[serve.py](src/serving/serve.py)** - How models are loaded and served via Ray Serve
 
 ______________________________________________________________________
 
@@ -168,9 +168,9 @@ The training uses a **driver-worker pattern** with single-GPU execution:
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-> **Note:** This demo uses single-GPU training. For distributed DDP training, one would load 
-> only shards of data in the worker nodes. An example of this using 
-> Ray Data for distributed training with data sharding, 
+> **Note:** This demo uses single-GPU training. For distributed DDP training, one would load
+> only shards of data in the worker nodes. An example of this using
+> Ray Data for distributed training with data sharding,
 > see [Ray Data with PyTorch Lightning](https://github.com/OpenCloudHub/ai-dl-lightning).
 
 ### Serving Architecture (Ray Serve)
@@ -199,9 +199,9 @@ The training uses a **driver-worker pattern** with single-GPU execution:
 ### Key Integration Points
 
 1. **Prompt Lineage**: Prompts are versioned in MLflow, embedded during data processing, tracked through training, and used at inference
-2. **Checkpoint Contents**: Model weights + processor + prompt_info.json (everything needed to serve)
-3. **MLflow PyFunc**: Custom wrapper handles VLM loading since MLflow doesn't support vision-language natively
-4. **Quantized Serving**: `SERVE_QUANTIZED=true` enables 4-bit inference (~4GB vs ~8GB VRAM)
+1. **Checkpoint Contents**: Model weights + processor + prompt_info.json (everything needed to serve)
+1. **MLflow PyFunc**: Custom wrapper handles VLM loading since MLflow doesn't support vision-language natively
+1. **Quantized Serving**: `SERVE_QUANTIZED=true` enables 4-bit inference (~4GB vs ~8GB VRAM)
 
 ______________________________________________________________________
 
@@ -237,10 +237,10 @@ uv sync --dev
 
 Two environment files are provided:
 
-| File | Use Case |
-|------|----------|
-| `.env.docker` | Local Docker Compose (MLflow + MinIO on localhost) |
-| `.env.minikube` | Minikube/Kubernetes (internal cluster URLs) |
+| File            | Use Case                                           |
+| --------------- | -------------------------------------------------- |
+| `.env.docker`   | Local Docker Compose (MLflow + MinIO on localhost) |
+| `.env.minikube` | Minikube/Kubernetes (internal cluster URLs)        |
 
 ```bash
 # For local Docker Compose setup
@@ -382,19 +382,19 @@ RAY_ADDRESS='http://127.0.0.1:8265' ray job submit \
 
 ### Training Methods
 
-| Method | Config | VRAM | Use Case |
-|--------|--------|------|----------|
-| **QLoRA** | `lora.enabled=true`, `quantization.enabled=true` | ~9GB | Default, single GPU |
-| LoRA | `lora.enabled=true`, `quantization.enabled=false` | ~16GB | Better quality |
-| Full | Both disabled | ~24GB+ | Best quality, multi-GPU |
+| Method    | Config                                            | VRAM   | Use Case                |
+| --------- | ------------------------------------------------- | ------ | ----------------------- |
+| **QLoRA** | `lora.enabled=true`, `quantization.enabled=true`  | ~9GB   | Default, single GPU     |
+| LoRA      | `lora.enabled=true`, `quantization.enabled=false` | ~16GB  | Better quality          |
+| Full      | Both disabled                                     | ~24GB+ | Best quality, multi-GPU |
 
 ### GPU Memory Usage (RTX 4070 Ti Super 16GB)
 
-| Workload | VRAM |
-|----------|------|
-| QLoRA Training | ~9GB |
-| Serving (unquantized) | ~8GB |
-| Serving (quantized) | ~4GB |
+| Workload                         | VRAM        |
+| -------------------------------- | ----------- |
+| QLoRA Training                   | ~9GB        |
+| Serving (unquantized)            | ~8GB        |
+| Serving (quantized)              | ~4GB        |
 | **Training + Quantized Serving** | **~13GB** ✓ |
 
 This allows demonstrating training and serving simultaneously on a single GPU.
@@ -402,14 +402,17 @@ This allows demonstrating training and serving simultaneously on a single GPU.
 ### What Gets Logged to MLflow
 
 **Parameters:**
+
 - `model_name`, `training_method`, `batch_size`, `learning_rate`, `max_steps`
 - `lora_r`, `lora_alpha`, `quantization_enabled`, `flash_attention`
 - `dvc_data_version`
 
 **Tags:**
+
 - `argo_workflow_uid`, `docker_image_tag`, `prompt_name`, `prompt_version`
 
 **Artifacts:**
+
 - Model weights (LoRA adapters or full model)
 - Processor configuration
 - `prompt_info.json` (ensures serving uses training prompt)
@@ -432,13 +435,13 @@ SERVE_QUANTIZED=true serve run src.serving.serve:app_builder \
 
 ### API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | Service info and links |
-| `/health` | GET | Kubernetes readiness probe |
-| `/info` | GET | Model metadata from MLflow |
-| `/predict` | POST | Image analysis (file upload) |
-| `/docs` | GET | Swagger UI |
+| Endpoint   | Method | Description                  |
+| ---------- | ------ | ---------------------------- |
+| `/`        | GET    | Service info and links       |
+| `/health`  | GET    | Kubernetes readiness probe   |
+| `/info`    | GET    | Model metadata from MLflow   |
+| `/predict` | POST   | Image analysis (file upload) |
+| `/docs`    | GET    | Swagger UI                   |
 
 ### Usage Example
 
@@ -476,9 +479,11 @@ Update the model without restarting the service:
 
 ```python
 import requests
-requests.post("http://localhost:8000/reconfigure", json={
-    "model_uri": "models:/dev.roco-radiology-vqa/2"
-})
+
+requests.post(
+    "http://localhost:8000/reconfigure",
+    json={"model_uri": "models:/dev.roco-radiology-vqa/2"},
+)
 ```
 
 ______________________________________________________________________
@@ -525,15 +530,15 @@ ai-radiology-qwen/
 
 ### Module Descriptions
 
-| Module | Purpose |
-|--------|---------|
-| `train.py` | Orchestrates training: loads config, sets up MLflow, runs Ray Train |
-| `config.py` | Separates infrastructure (env) from training (YAML) configuration |
-| `trainer.py` | Custom HuggingFace Trainer with per-component learning rates |
-| `callbacks.py` | Bundles processor and prompt into checkpoints for serving |
-| `data.py` | Handles Qwen's conversation format and 3D position encoding |
-| `mlflow_wrapper.py` | Enables MLflow to serve VLMs (the key innovation) |
-| `serve.py` | FastAPI application with health checks and batch inference |
+| Module              | Purpose                                                             |
+| ------------------- | ------------------------------------------------------------------- |
+| `train.py`          | Orchestrates training: loads config, sets up MLflow, runs Ray Train |
+| `config.py`         | Separates infrastructure (env) from training (YAML) configuration   |
+| `trainer.py`        | Custom HuggingFace Trainer with per-component learning rates        |
+| `callbacks.py`      | Bundles processor and prompt into checkpoints for serving           |
+| `data.py`           | Handles Qwen's conversation format and 3D position encoding         |
+| `mlflow_wrapper.py` | Enables MLflow to serve VLMs (the key innovation)                   |
+| `serve.py`          | FastAPI application with health checks and batch inference          |
 
 ______________________________________________________________________
 

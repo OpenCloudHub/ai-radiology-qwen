@@ -19,17 +19,17 @@ training:
   warmup_steps: 2
   logging_steps: 2
   save_steps: 10
-  
+
   lora:
     enabled: true
     r: 16
     alpha: 32
     dropout: 0.1
     target_modules: "all-linear"
-  
+
   quantization:
     enabled: false
-  
+
   optimization:
     flash_attention: false
     gradient_checkpointing: true

@@ -133,6 +133,7 @@ repos:
       - id: typos
         name: "📝 spell · Check spelling in all files"
         exclude: '\.svg$'
+        # Custom words in _typos.toml (thw = Time/Height/Width for VLM grids)
 
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.1
