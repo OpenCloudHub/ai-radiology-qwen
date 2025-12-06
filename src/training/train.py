@@ -223,7 +223,7 @@ def train_worker(train_loop_config: dict):
         log_section("Loading Data from DVC", "📦")
 
     local_path, metadata = load_data_from_dvc(
-        repo=infra.dvc_repo,
+        repo=infra.dvc_repo_url,
         version=infra.dvc_data_version,
         processed_path=infra.dvc_processed_path,
         metadata_path=infra.dvc_metadata_path,
@@ -320,7 +320,7 @@ def train_driver(config: TrainConfig, infra: InfraConfig) -> ray.train.Result:
     # Load metadata to get prompt info for tagging
     log_info("Loading metadata from DVC...")
     metadata = load_metadata_from_dvc(
-        repo=infra.dvc_repo,
+        repo=infra.dvc_repo_url,
         version=infra.dvc_data_version,
         metadata_path=infra.dvc_metadata_path,
     )

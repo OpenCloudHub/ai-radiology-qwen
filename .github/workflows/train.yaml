@@ -17,7 +17,7 @@ on:
         description: "Path to configs to use for training"
         required: true
         type: string
-        default: "--config configs/debug_qlora.yaml"
+        default: "--config configs/debug_qlora_flash.yaml"
       training_image_tag:
         description: "Training image tag (latest or specific like abc1234)"
         required: false
@@ -40,7 +40,7 @@ on:
           - "gpu-small"
           - "gpu-medium"
           - "gpu-large"
-        default: "gpu-small"
+        default: "gpu-medium"
       approval_mode:
         description: "Approval mode"
         required: true
@@ -48,7 +48,7 @@ on:
         options:
           - manual
           - automatic
-        default: "automatic"
+        default: "manual"
       comparison_metric:
         description: "Metric to compare models, mind of pre and suffixes"
         required: true
@@ -68,10 +68,10 @@ jobs:
   train:
     uses: OpenCloudHub/.github/.github/workflows/shared-mlops-pipeline.yaml@main
     with:
-      model_name: "roco-radiology-vqa"
+      model_name: "qwen-vl-radiology-vqa"
       dvc_dataset: "roco-radiology"
       dvc_data_version: ${{ inputs.dvc_data_version }}
-      experiment_name: "roco-radiology-vqa"
+      experiment_name: "qwen-vl-radiology-vqa"
       training_entrypoint: ${{ inputs.training_entrypoint }}
       training_args: ${{ inputs.training_args }}
       training_image_tag: ${{ inputs.training_image_tag }}

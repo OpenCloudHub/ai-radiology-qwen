@@ -27,7 +27,6 @@ configs/ : Example YAML configurations
 README.md : Environment variable reference
 """
 
-import os
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -35,48 +34,60 @@ from typing import Optional
 
 import torch
 from pydantic import BaseModel, Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from transformers import TrainingArguments
 
 
 # =============================================================================
 # Infrastructure Config (env vars only - CI controls this)
 # =============================================================================
-class InfraConfig:
-    """Infrastructure configuration from environment variables only."""
+class InfraConfig(BaseSettings):
+    """
+    Infrastructure configuration from environment variables.
+
+    In Kubernetes: Populated from ConfigMaps (models-job-env, qwen-vl-radiology-vqa-env)
+    Locally: Reads from .env file for development
+
+    Environment variable mapping:
+        DVC_REPO_URL                -> dvc_repo_url
+        DVC_DATA_VERSION            -> dvc_data_version (required)
+        DVC_PROCESSED_PATH          -> dvc_processed_path
+        DVC_METADATA_PATH           -> dvc_metadata_path
+        MLFLOW_TRACKING_URI         -> mlflow_tracking_uri
+        MLFLOW_EXPERIMENT_NAME      -> mlflow_experiment_name
+        MLFLOW_REGISTERED_MODEL_NAME-> mlflow_registered_model_name
+        RAY_STORAGE_PATH            -> ray_storage_path
+        RAY_NUM_WORKERS             -> ray_num_workers
+        RAY_GPU_FRACTION            -> ray_gpu_fraction
+        ARGO_WORKFLOW_UID           -> argo_workflow_uid
+        DOCKER_IMAGE_TAG            -> docker_image_tag
+    """
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
     # DVC
-    dvc_repo: str = os.environ.get(
-        "DVC_REPO", "https://github.com/OpenCloudHub/data-registry"
-    )
-    dvc_data_version: str = os.environ["DVC_DATA_VERSION"]  # Required - fail if not set
-    dvc_processed_path: str = os.environ.get(
-        "DVC_PROCESSED_PATH", "data/roco-radiology/processed"
-    )
-    dvc_metadata_path: str = os.environ.get(
-        "DVC_METADATA_PATH", "data/roco-radiology/metadata.json"
-    )
+    dvc_repo_url: str = "https://github.com/OpenCloudHub/data-registry"
+    dvc_data_version: str  # Required - injected by Argo workflow
+    dvc_processed_path: str = "data/roco-radiology/processed"
+    dvc_metadata_path: str = "data/roco-radiology/metadata.json"
 
     # MLflow
-    mlflow_tracking_uri: str = os.environ.get(
-        "MLFLOW_TRACKING_URI", "http://localhost:5000"
-    )
-    mlflow_experiment_name: str = os.environ.get(
-        "MLFLOW_EXPERIMENT_NAME", "qwen-training"
-    )
-    mlflow_registered_model_name: str = os.environ.get(
-        "MLFLOW_REGISTERED_MODEL_NAME", "dev.qwen-vl-radiology"
-    )
+    mlflow_tracking_uri: str = "http://localhost:5000"
+    mlflow_experiment_name: str = "qwen-training"
+    mlflow_registered_model_name: str = "dev.qwen-vl-radiology-vqa"
 
     # Ray
-    ray_storage_path: str = os.environ.get("RAY_STORAGE_PATH", "/tmp/ray_results")
-    ray_num_workers: int = int(os.environ.get("RAY_NUM_WORKERS", "1"))
-    ray_gpu_fraction: float = float(
-        os.environ.get("RAY_GPU_FRACTION", "1.0")
-    )  # 0.0-1.0
+    ray_storage_path: str = "/tmp/ray_results"
+    ray_num_workers: int = 1
+    ray_gpu_fraction: float = Field(default=1.0, ge=0.0, le=1.0)
 
-    # Tracking metadata
-    argo_workflow_uid: str = os.environ.get("ARGO_WORKFLOW_UID", "local")
-    docker_image_tag: str = os.environ.get("DOCKER_IMAGE_TAG", "dev")
+    # Tracking metadata - injected inline by Argo workflow
+    argo_workflow_uid: str = "local"
+    docker_image_tag: str = "dev"
 
 
 def get_infra_config() -> InfraConfig:

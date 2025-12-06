@@ -2,40 +2,136 @@
 Logging Utilities
 =================
 
-Dual-output logging: structured JSON (for Ray/Loki) + Rich console (for humans).
+Loguru-based logging with Rich console output for visual helpers.
+
+- Structured loguru format with timestamps and colored output
+- Intercepts stdlib logging (for mlflow, transformers, ray, etc.)
+- Rich console helpers for visual sections and summaries
 
 Functions
 ---------
-get_logger : Returns a Python logger configured for Ray's JSON format
-get_ray_logging_config : Returns Ray LoggingConfig for ray.init()
+get_logger : Returns a bound loguru logger with name context
 log_section, log_success, log_error, log_info : Rich console helpers
 log_training_summary, log_results_summary : Formatted training output
 
 Usage
 -----
-    ray.init(logging_config=get_ray_logging_config())
+    from src.training.log import get_logger, log_section
+
     logger = get_logger(__name__)
-    logger.info("Loading model", extra={"model": "qwen-3b"})
+    logger.info("Loading model", model="qwen-3b")
     log_section("Training", "🚀")
 """
 
 import logging
-import os
+import sys
+import warnings
+from os import getenv
 from typing import Any
 
-import ray
+from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+# =============================================================================
+# Configuration
+# =============================================================================
+LOG_LEVEL = getenv("LOG_LEVEL", "INFO").upper()
 
 # =============================================================================
 # Rich Console (for visual output only, not logging)
 # =============================================================================
 console = Console(force_terminal=True, stderr=True)
 
+# =============================================================================
+# Loguru Setup
+# =============================================================================
+logger.remove()
+
+# Bound loggers (from get_logger)
+logger.add(
+    sys.stdout,
+    level=LOG_LEVEL,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[name]}</cyan> | <level>{message}</level>",
+    colorize=True,
+    filter=lambda record: "name" in record["extra"],
+)
+
+# Intercepted stdlib loggers
+logger.add(
+    sys.stdout,
+    level=LOG_LEVEL,
+    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <dim>{name}</dim> | <level>{message}</level>",
+    colorize=True,
+    filter=lambda record: "name" not in record["extra"],
+)
+
 
 # =============================================================================
-# Visual Helpers (print-based, not logging)
+# Stdlib Interception (mlflow, transformers, ray, etc. → loguru)
+# =============================================================================
+class InterceptHandler(logging.Handler):
+    """Redirect stdlib logging to loguru."""
+
+    def emit(self, record):
+        try:
+            level = logger.level(record.levelname).name
+        except ValueError:
+            level = record.levelno
+
+        frame, depth = logging.currentframe(), 2
+        while frame and frame.f_code.co_filename == logging.__file__:
+            frame = frame.f_back
+            depth += 1
+
+        logger.opt(depth=depth, exception=record.exc_info).log(
+            level, record.getMessage()
+        )
+
+
+logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+# Silence noisy libraries unless DEBUG
+if LOG_LEVEL != "DEBUG":
+    for name in [
+        "mlflow",
+        "urllib3",
+        "botocore",
+        "boto3",
+        "fsspec",
+        "git",
+        "ray",
+        "httpx",
+        "httpcore",
+    ]:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+    warnings.filterwarnings("ignore")
+
+
+# =============================================================================
+# Logger Factory
+# =============================================================================
+def get_logger(name: str):
+    """
+    Get a named loguru logger.
+
+    Args:
+        name: Logger name (typically __name__)
+
+    Returns:
+        Bound loguru logger with name context
+
+    Usage:
+        logger = get_logger(__name__)
+        logger.info("Loading model", model="qwen-3b")
+    """
+    return logger.bind(name=name)
+
+
+# =============================================================================
+# Visual Helpers (Rich console, not logging)
 # =============================================================================
 def log_section(title: str, emoji: str = "📌") -> None:
     """Print a visual section separator."""
@@ -118,64 +214,3 @@ def log_results_summary(metrics: dict, checkpoint_path: str = None) -> None:
         lines.append(f"\n[bold]Checkpoint:[/] {checkpoint_path}")
 
     console.print(Panel("\n".join(lines), title="📊 Results", border_style="green"))
-
-
-# =============================================================================
-# Logger Setup
-# =============================================================================
-def get_logger(name: str) -> logging.Logger:
-    """
-    Get a logger instance.
-
-    Ray's LoggingConfig handles the formatting (JSON).
-    Just get the logger and use it.
-    """
-    logger = logging.getLogger(name)
-
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        logger.propagate = True  # Let Ray handle output
-
-    return logger
-
-
-def get_ray_logging_config() -> ray.LoggingConfig:
-    """
-    Get Ray LoggingConfig for structured JSON logs.
-
-    Usage:
-        ray.init(logging_config=get_ray_logging_config())
-
-    The JSON logs automatically include:
-    - job_id, worker_id, node_id
-    - task_id, task_name (for tasks)
-    - actor_id, actor_name (for actors)
-    - timestamp_ns
-    """
-    return ray.LoggingConfig(
-        encoding="JSON",
-        log_level=os.getenv("LOG_LEVEL", "INFO"),
-    )
-
-
-# =============================================================================
-# Structured Logging Helpers
-# =============================================================================
-def log_config(logger: logging.Logger, config: dict, name: str = "config") -> None:
-    """Log configuration as structured data."""
-    logger.info(f"Loaded {name}", extra={name: config})
-
-
-def log_metrics(
-    logger: logging.Logger, metrics: dict[str, Any], step: int = None
-) -> None:
-    """Log metrics as structured data."""
-    extra = {"metrics": metrics}
-    if step is not None:
-        extra["step"] = step
-    logger.info("Metrics", extra=extra)
-
-
-def log_event(logger: logging.Logger, event: str, **kwargs) -> None:
-    """Log a structured event with arbitrary fields."""
-    logger.info(event, extra=kwargs)

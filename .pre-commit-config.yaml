@@ -140,7 +140,7 @@ repos:
     hooks:
       - id: codespell
         name: "📝 spell · Check spelling in code files"
-        args: ["--skip=*.lock,*.svg,*.min.js,*.ipynb"]
+        args: ["--skip=*.lock,*.svg,*.min.js,*.ipynb,_typos.toml"]
 
   # ---------------------------- 📁 Filesystem Tools --------------------------- #
 

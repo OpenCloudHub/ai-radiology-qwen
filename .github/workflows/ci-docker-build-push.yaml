@@ -38,7 +38,7 @@ jobs:
     name: 🎓 Build Training Image
     uses: opencloudhub/.github/.github/workflows/shared-ci-docker-build-push.yaml@main
     with:
-      repo-name: "roco-radiology-vqa-training"
+      repo-name: "qwen-vl-radiology-vqa-training"
       context: "."
       dockerfile: "Dockerfile"
       target: "training"
@@ -55,7 +55,7 @@ jobs:
     name: 🚀 Build Serving Image
     uses: opencloudhub/.github/.github/workflows/shared-ci-docker-build-push.yaml@main
     with:
-      repo-name: "roco-radiology-vqa-serving"
+      repo-name: "qwen-vl-radiology-vqa-serving"
       context: "."
       dockerfile: "Dockerfile"
       target: "serving"
