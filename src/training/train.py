@@ -57,7 +57,6 @@ from src.training.data import create_dataset_and_collator
 from src.training.dvc_loader import load_data_from_dvc
 from src.training.log import (
     get_logger,
-    get_ray_logging_config,
     log_error,
     log_info,
     log_key_value,
