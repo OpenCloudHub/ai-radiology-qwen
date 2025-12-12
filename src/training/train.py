@@ -450,6 +450,13 @@ def train_driver(config: TrainConfig, infra: InfraConfig) -> ray.train.Result:
                 os.environ["MLFLOW_MODEL_DEVICE"] = "cpu"
 
                 try:
+                    # Remove training-only files before MLflow upload
+                    for f in ["optimizer.pt", "scheduler.pt", "rng_state.pth"]:
+                        p = checkpoint_path / f
+                        if p.exists():
+                            p.unlink()
+                            log_info(f"Removed {f} (kept in Ray storage for resume)")
+
                     # Log model (signature inferred from type hints)
                     model_info = mlflow.pyfunc.log_model(
                         name="model",
