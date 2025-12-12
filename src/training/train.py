@@ -508,7 +508,7 @@ def main():
     # Initialize Ray
     if not ray.is_initialized():
         ray.init()
-        log_success("Ray initialized with JSON logging")
+        log_success("Ray initialized")
 
     # Run training
     result = train_driver(config, infra)

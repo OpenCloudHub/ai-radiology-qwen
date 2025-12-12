@@ -33,7 +33,7 @@ from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from ray._private.ray_logging.logging_config import LoggingConfig
+
 # =============================================================================
 # Configuration
 # =============================================================================
@@ -45,27 +45,56 @@ LOG_LEVEL = getenv("LOG_LEVEL", "INFO").upper()
 console = Console(force_terminal=True, stderr=True)
 
 # =============================================================================
-# Loguru Setup
+# Lazy Loguru Setup (avoid pickling issues with Ray)
 # =============================================================================
-logger.remove()
+_configured = False
 
-# Bound loggers (from get_logger)
-logger.add(
-    sys.stdout,
-    level=LOG_LEVEL,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[name]}</cyan> | <level>{message}</level>",
-    colorize=True,
-    filter=lambda record: "name" in record["extra"],
-)
 
-# Intercepted stdlib loggers
-logger.add(
-    sys.stdout,
-    level=LOG_LEVEL,
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <dim>{name}</dim> | <level>{message}</level>",
-    colorize=True,
-    filter=lambda record: "name" not in record["extra"],
-)
+def _setup_logging():
+    global _configured
+    if _configured:
+        return
+    
+    logger.remove()
+
+    # Bound loggers (from get_logger)
+    logger.add(
+        sys.stdout,
+        level=LOG_LEVEL,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[name]}</cyan> | <level>{message}</level>",
+        colorize=True,
+        filter=lambda record: "name" in record["extra"],
+    )
+
+    # Intercepted stdlib loggers
+    logger.add(
+        sys.stdout,
+        level=LOG_LEVEL,
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <dim>{name}</dim> | <level>{message}</level>",
+        colorize=True,
+        filter=lambda record: "name" not in record["extra"],
+    )
+
+    # Intercept stdlib logging
+    logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
+
+    # Silence noisy libraries unless DEBUG
+    if LOG_LEVEL != "DEBUG":
+        for name in [
+            "mlflow",
+            "urllib3",
+            "botocore",
+            "boto3",
+            "fsspec",
+            "git",
+            "ray",
+            "httpx",
+            "httpcore",
+        ]:
+            logging.getLogger(name).setLevel(logging.WARNING)
+        warnings.filterwarnings("ignore")
+
+    _configured = True
 
 
 # =============================================================================
@@ -90,26 +119,6 @@ class InterceptHandler(logging.Handler):
         )
 
 
-logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
-
-# Silence noisy libraries unless DEBUG
-if LOG_LEVEL != "DEBUG":
-    for name in [
-        "mlflow",
-        "urllib3",
-        "botocore",
-        "boto3",
-        "fsspec",
-        "git",
-        "ray",
-        "httpx",
-        "httpcore",
-    ]:
-        logging.getLogger(name).setLevel(logging.WARNING)
-
-    warnings.filterwarnings("ignore")
-
-
 # =============================================================================
 # Logger Factory
 # =============================================================================
@@ -122,12 +131,9 @@ def get_logger(name: str):
 
     Returns:
         Bound loguru logger with name context
-
-    Usage:
-        logger = get_logger(__name__)
-        logger.info("Loading model", model="qwen-3b")
     """
-    return logger.bind(name=name)   
+    _setup_logging()
+    return logger.bind(name=name)
 
 
 # =============================================================================
