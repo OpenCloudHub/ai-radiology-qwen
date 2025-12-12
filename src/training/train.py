@@ -69,8 +69,6 @@ from src.training.log import (
 from src.training.mlflow_wrapper import QwenVLPyFuncModel
 from src.training.trainer import QwenTrainer
 
-logger = get_logger(__name__)
-
 
 # =============================================================================
 # Utility Functions
@@ -88,6 +86,8 @@ def check_mlflow_env():
 # =============================================================================
 def load_model(config: TrainConfig):
     """Load Qwen2.5-VL model with optional quantization."""
+    logger = get_logger(__name__)
+
     model_name = config.model.name
     training_cfg = config.training
 
@@ -159,6 +159,7 @@ def load_model(config: TrainConfig):
 
 def apply_lora(model, config: TrainConfig):
     """Apply LoRA adapters to model if enabled."""
+    logger = get_logger(__name__)
     lora_cfg = config.training.lora
 
     if not lora_cfg.enabled:
@@ -194,6 +195,8 @@ def apply_lora(model, config: TrainConfig):
 # =============================================================================
 def train_worker(train_loop_config: dict):
     """Training function that runs on each Ray worker."""
+    logger = get_logger(__name__)
+
     # Unpack configs
     config = TrainConfig.model_validate(train_loop_config["config_dict"])
     infra = InfraConfig()  # Always from env vars
@@ -315,6 +318,7 @@ def train_worker(train_loop_config: dict):
 def train_driver(config: TrainConfig, infra: InfraConfig) -> ray.train.Result:
     """Driver function that orchestrates training."""
     log_section("Qwen2.5-VL Training Pipeline", "🚀")
+    logger = get_logger(__name__)
 
     # Load metadata to get prompt info for tagging
     log_info("Loading metadata from DVC...")
