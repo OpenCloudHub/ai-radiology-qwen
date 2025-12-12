@@ -97,6 +97,7 @@ COPY pyproject.toml uv.lock ./
 # Copy venv with pre-built flash-attn from training_deps
 COPY --from=training_deps /opt/venv /opt/venv
 
+COPY --chown=ray:users configs/ ./configs/
 COPY --chown=ray:users src/ ./src/
 
 ENV ENVIRONMENT=training
