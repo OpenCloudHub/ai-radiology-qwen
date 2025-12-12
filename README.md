@@ -67,6 +67,7 @@ This repository is part of a Master's thesis: **"A Scalable MLOps System for Mul
 This workload introduces **generative AI patterns** to the platform demonstration. While previous workloads focused on predictive ML (classification), this repo demonstrates the distinct operational requirements of generative models: prompt management, memory-efficient training, inference, and multimodal inputs.
 
 The Qwen2.5-VL model and radiology dataset are chosen to validate that the platform can handle:
+
 - Large model fine-tuning with limited GPU resources
 - Vision-Language architectures (relevant for Presentable's multimodal analysis)
 - Prompt versioning as a first-class MLOps concern
@@ -118,7 +119,7 @@ This workload required solving problems that don't exist with standard ML models
 
 ```
 ┌─────────────────┐     ┌────────────────────┐     ┌─────────────────┐
-│  data-registry  │────▶│    ai-dl-qwen      │────▶│     gitops      │
+│  data-registry  │────▶│  ai-genai-qwen-vl  │────▶│     gitops      │
 │                 │     │    (this repo)     │     │                 │
 │  - images/      │     │                    │     │  - RayService   │
 │  - annotations  │     │  ┌──────────────┐  │     │    manifest     │
@@ -208,7 +209,7 @@ flowchart TB
         • Creates Dataset from local path
         • Runs HF Trainer
         • Reports checkpoints to Ray"]
-        
+
         subgraph model["Model Components"]
             VISION[Vision Encoder ❄️]
             PROJ[Vision-Language Projector 🔥]
@@ -263,9 +264,10 @@ flowchart LR
 ```
 
 QLoRA enables fine-tuning on a single 16GB GPU by:
+
 1. Quantizing base model weights to 4-bit (NF4)
-2. Adding small trainable LoRA adapters
-3. Using gradient checkpointing to reduce activation memory
+1. Adding small trainable LoRA adapters
+1. Using gradient checkpointing to reduce activation memory
 
 ### Serving Architecture
 
@@ -280,7 +282,7 @@ flowchart TB
     subgraph rayserve["Ray Serve"]
         DEPLOY["QwenVLDeployment
         GPU: 0.25 (fractional)"]
-        
+
         subgraph internals["Processing"]
             LOAD_IMG[Decode Base64/Upload]
             TOKENIZE[Processor + Prompt]
@@ -291,7 +293,7 @@ flowchart TB
     subgraph mlflow["MLflow Registry"]
         MODEL["models:/dev.roco-radiology/1
         + checkpoint
-        + processor  
+        + processor
         + prompt_info.json"]
     end
 
@@ -311,13 +313,13 @@ flowchart LR
             ~9GB VRAM
             GPU fraction: 0.5"]
         end
-        
+
         subgraph serving["Serving (always on)"]
             SERVE["Quantized Inference
             ~4GB VRAM
             GPU fraction: 0.25"]
         end
-        
+
         subgraph free["Available"]
             FREE["~3GB VRAM
             GPU fraction: 0.25"]
@@ -336,7 +338,7 @@ Each file includes detailed header comments explaining its purpose. This section
 ### Project Layout
 
 ```
-ai-dl-qwen/
+ai-genai-qwen-vl/
 ├── src/
 │   ├── training/                   # VLM fine-tuning pipeline
 │   │   ├── train.py                # Entry point (driver-worker pattern)
@@ -399,7 +401,7 @@ MLflow doesn't natively support Vision-Language Models. This wrapper enables VLM
 # Custom MLflow signature for VLM
 signature = ModelSignature(
     inputs=Schema([ColSpec("string", "images")]),  # Base64 images
-    outputs=Schema([ColSpec("string", "captions")])
+    outputs=Schema([ColSpec("string", "captions")]),
 )
 ```
 
@@ -456,15 +458,23 @@ Separates infrastructure from training configuration:
 #   - Learning rate, batch size, LoRA rank, quantization
 #   - Versioned with code for reproducibility
 
+
 @dataclass
 class InfraConfig:
     """From environment — CI/CD controls these."""
-    dvc_data_version: str = field(default_factory=lambda: os.environ["DVC_DATA_VERSION"])
-    mlflow_tracking_uri: str = field(default_factory=lambda: os.environ.get("MLFLOW_TRACKING_URI"))
 
-@dataclass  
+    dvc_data_version: str = field(
+        default_factory=lambda: os.environ["DVC_DATA_VERSION"]
+    )
+    mlflow_tracking_uri: str = field(
+        default_factory=lambda: os.environ.get("MLFLOW_TRACKING_URI")
+    )
+
+
+@dataclass
 class TrainingConfig:
     """From YAML — developers control these."""
+
     learning_rate: float = 2e-4
     lora_r: int = 64
     quantization_enabled: bool = True
@@ -531,11 +541,11 @@ ______________________________________________________________________
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/opencloudhub/ai-dl-qwen.git
-   cd ai-dl-qwen
+   git clone https://github.com/opencloudhub/ai-genai-qwen-vl.git
+   cd ai-genai-qwen-vl
    ```
 
-2. **Open in DevContainer** (Recommended)
+1. **Open in DevContainer** (Recommended)
 
    VSCode: `Ctrl+Shift+P` → `Dev Containers: Rebuild and Reopen in Container`
 
@@ -546,13 +556,13 @@ ______________________________________________________________________
    uv sync --dev
    ```
 
-3. **Start Ray with GPU**
+1. **Start Ray with GPU**
 
    ```bash
    ray start --head --num-gpus 1 --num-cpus 12
    ```
 
-4. **Choose infrastructure backend** (see next section)
+1. **Choose infrastructure backend** (see next section)
 
 ______________________________________________________________________
 
@@ -568,7 +578,7 @@ git clone https://github.com/OpenCloudHub/local-compose-stack.git
 cd local-compose-stack && docker compose up -d
 
 # Configure and run
-cd ../ai-dl-qwen
+cd ../ai-genai-qwen-vl
 set -a && source .env.docker && set +a
 ```
 
@@ -595,7 +605,7 @@ python src/training/train.py --config configs/debug_qlora.yaml
 
 Training runs as a GPU-enabled RayJob on Kubernetes.
 
-**Trigger training:** [Actions → MLOps Pipeline](https://github.com/OpenCloudHub/ai-dl-qwen/actions/workflows/train.yaml)
+**Trigger training:** [Actions → MLOps Pipeline](https://github.com/OpenCloudHub/ai-genai-qwen-vl/actions/workflows/train.yaml)
 
 **Flow:** GitHub Actions → Argo Workflows → RayJob (GPU) → MLflow Registry → RayService
 

@@ -73,9 +73,8 @@ app = FastAPI(
 
 
 @serve.deployment(
-    # ray_actor_options={
-    #     "num_gpus": 0.25
-    # },  # FIXME: This is usually enabled by the serving cluster config, you can uncomment if needed for local testing
+    # Note: GPU resources are configured by RayService manifests in production.
+    # For local testing, uncomment: ray_actor_options={"num_gpus": 0.25}
 )
 @serve.ingress(app)
 class QwenVLRadiologyVQAService:

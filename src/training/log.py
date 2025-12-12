@@ -227,4 +227,6 @@ def log_results_summary(metrics: dict, checkpoint_path: str = None) -> None:
     if checkpoint_path:
         lines.append(f"\n[bold]Checkpoint:[/] {checkpoint_path}")
 
-    _get_console().print(Panel("\n".join(lines), title="📊 Results", border_style="green"))
+    _get_console().print(
+        Panel("\n".join(lines), title="📊 Results", border_style="green")
+    )
